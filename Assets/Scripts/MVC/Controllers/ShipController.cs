@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Controls;
 using Settings;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -16,7 +17,7 @@ namespace MVC
         private List<BaseUnitView> _projectiles = new List<BaseUnitView>();
         private List<BaseUnitView> _projectilesPool = new List<BaseUnitView>();
         private Transform _parent;
-        
+        private MotionWithInertia _motionWithInertia;
         private GameSettings.ShipSettings _shipSettings;
         public ShipController(BattlefieldModel battlefieldModel) : base(battlefieldModel)
         {
@@ -34,6 +35,7 @@ namespace MVC
             _shipView.LaserButtonClicked += OnLaserButtonClicked;
             _shipView.LaserButtonUp += OnLaserButtonUp;
             _parent = Main.Instance.ProjectilesParent;
+            _motionWithInertia = Main.Instance.UserModel.MotionWithInertia;
             for (var i = 0; i < 10; ++i)
             {
                 var obj = Object.Instantiate(_shipSettings.projectilePrefab, _parent);
@@ -57,6 +59,7 @@ namespace MVC
 
         public override void Update()
         {
+            _motionWithInertia.TeleportOrDisappearEffect(_shipView);
             for (var i = _projectiles.Count-1; i >= 0; --i)
             {
                 ProjectileMove(_projectiles[i].transform.up, _projectiles[i], 10);
@@ -78,15 +81,15 @@ namespace MVC
             _shipView.transform.rotation = Quaternion.LookRotation(Vector3.forward, mousePos - _shipView.transform.position);
         }
         protected void OnEnemyTriggerEnter(BaseUnitView view)
-        {
+        { 
+            _motionWithInertia.CurrentSpeedSetZero();
             _userModel.DestroyShip();
             view.gameObject.SetActive(false);
         }
 
         protected override void Move(BaseUnitView baseUnitView, Vector3 direction)
         {
-            base.Move(baseUnitView, direction);
-            _moveControl.Move(direction, baseUnitView, _shipSettings.speed);
+            _motionWithInertia.InertiaMove(direction, baseUnitView, _shipSettings.speed);
         }
 
         private void OnMoveButtonClicked()
@@ -96,7 +99,7 @@ namespace MVC
         }
         private void OnMoveButtonUp()
         {
-            _direction = Vector3.zero;
+            _motionWithInertia.MoveEnd(_shipView);
         }
         private void SetDirection(Vector3 dir)
         {

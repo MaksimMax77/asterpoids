@@ -18,8 +18,9 @@ namespace MVC
             _userModel.ScoreAmountUpdate += OnScoreAmountUpdate;
             _battlefieldModel.GameOverEvent += OnGameOver;
             _battlefieldModel.RestartEvent += OnRestart;
+            _userModel.MotionWithInertia.SpeedChanged += SetShipSpeed;
             _shipView = _userModel.ShipView;
-            SetShipSpeed();
+            
         }
 
         private void OnRestart()
@@ -33,6 +34,7 @@ namespace MVC
             _userModel.ScoreAmountUpdate -= OnScoreAmountUpdate;
             _battlefieldModel.GameOverEvent -= OnGameOver;
             _battlefieldModel.RestartEvent -= OnRestart;
+            _userModel.MotionWithInertia.SpeedChanged -= SetShipSpeed;
         }
 
         private void OnGameOver()
@@ -67,9 +69,9 @@ namespace MVC
             _shipInfoUiView.UpdateShipRotationText((int)_shipView.transform.localEulerAngles.z);
         }
 
-        private void SetShipSpeed()
+        private void SetShipSpeed(float currentSpeed)
         {
-            _shipInfoUiView.SetShipSpeed(_userModel.ShipSettings.speed);
+            _shipInfoUiView.SetShipSpeed(currentSpeed);
         }
     }
 }

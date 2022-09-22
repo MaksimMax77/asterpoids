@@ -14,12 +14,10 @@ namespace Controls
         {
             _camera = camera;
         }
-
         public void Move(Vector3 direction, BaseView view, float speed)
         {
             view.transform.position += direction * speed * Time.deltaTime;
         }
-
         public void TeleportOrDisappearEffect(BaseView view, bool disappear = false, Action Disappear = null)
         {
             var pos = _camera.WorldToScreenPoint(view.transform.position);
@@ -27,9 +25,7 @@ namespace Controls
             {
                 if (disappear)
                 {
-                    /*_objToMove*/
                     Disappear?.Invoke();
-                    /*view.gameObject.SetActive(false);*/
                 }
                 else
                 {
@@ -42,9 +38,7 @@ namespace Controls
             {
                 if (disappear)
                 {
-                    /*_objToMove*/
                     Disappear?.Invoke();
-                    /*view.gameObject.SetActive(false);*/
                 }
                 else
                 {

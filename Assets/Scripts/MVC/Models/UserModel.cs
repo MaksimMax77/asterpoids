@@ -1,4 +1,5 @@
 using System;
+using Controls;
 using Settings;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -18,12 +19,14 @@ namespace MVC
         private Vector3 _startPosition;
         private Transform _patent;
         private BattlefieldModel _battlefieldModel;
+        private MotionWithInertia _motionWithInertia;
         public BaseUnitView ShipView => _shipView;
         public float MaxLaserValue => _maxLaserValue;
         public float LaserAmount => _laserAmount;
         public GameSettings.ShipSettings ShipSettings => _shipSettings;
         public int Score => _score;
-
+        public MotionWithInertia MotionWithInertia => _motionWithInertia;
+        
         public UserModel(GameSettings gameSettings, BattlefieldModel battlefieldModel)
         {
             _patent = Main.Instance.UnitsParent;
@@ -31,6 +34,7 @@ namespace MVC
             _laserAmount = _shipSettings.laserAmount;
             _battlefieldModel = battlefieldModel;
             _battlefieldModel.RestartEvent += OnRespawn;
+            _motionWithInertia = new MotionWithInertia(_battlefieldModel.Camera);
             CreteUnitView();
         }
 
