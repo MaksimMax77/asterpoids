@@ -6,21 +6,12 @@ namespace MVC
     {
         private ShipInfoUiView _shipInfoUiView;
         private UserModel _userModel;
-        private BaseUnitView _shipView;
-        private BattlefieldModel _battlefieldModel;
-
-        public ShipInfoUiController(ShipInfoUiView shipInfoUiView, Transform _parent)
+        public ShipInfoUiController(UserModel userModel,ShipInfoUiView shipInfoUiView, Transform _parent)
         {
+            _userModel = userModel;
             _shipInfoUiView = Object.Instantiate(shipInfoUiView, _parent, false);
-            _userModel = Main.Instance.UserModel;
-            _battlefieldModel = Main.Instance.BattlefieldModel; 
             _userModel.LaserAmountUpdate += OnLaserAmountUpdate;
             _userModel.ScoreAmountUpdate += OnScoreAmountUpdate;
-            _battlefieldModel.GameOverEvent += OnGameOver;
-            _battlefieldModel.RestartEvent += OnRestart;
-            _userModel.MotionWithInertia.SpeedChanged += SetShipSpeed;
-            _shipView = _userModel.ShipView;
-            
         }
 
         private void OnRestart()
@@ -32,9 +23,6 @@ namespace MVC
         {
             _userModel.LaserAmountUpdate -= OnLaserAmountUpdate;
             _userModel.ScoreAmountUpdate -= OnScoreAmountUpdate;
-            _battlefieldModel.GameOverEvent -= OnGameOver;
-            _battlefieldModel.RestartEvent -= OnRestart;
-            _userModel.MotionWithInertia.SpeedChanged -= SetShipSpeed;
         }
 
         private void OnGameOver()
@@ -47,6 +35,7 @@ namespace MVC
         {
             UpdateShipPos();
             UpdateShipRotation();
+            SetShipSpeed();
         }
 
         private void OnLaserAmountUpdate(float value)
@@ -61,17 +50,17 @@ namespace MVC
 
         private void UpdateShipPos()
         {
-            _shipInfoUiView.UpdateShipPositionText(_shipView.transform.position);
+            _shipInfoUiView.UpdateShipPositionText(_userModel.ShipPos);
         }
         
         private void UpdateShipRotation()
         {
-            _shipInfoUiView.UpdateShipRotationText((int)_shipView.transform.localEulerAngles.z);
+            _shipInfoUiView.UpdateShipRotationText((int)_userModel.ShipAngle);
         }
 
-        private void SetShipSpeed(float currentSpeed)
+        private void SetShipSpeed(/*float currentSpeed*/)
         {
-            _shipInfoUiView.SetShipSpeed(currentSpeed);
+            _shipInfoUiView.SetShipSpeed(/*currentSpeed*/_userModel.ShipSpeed);
         }
     }
 }

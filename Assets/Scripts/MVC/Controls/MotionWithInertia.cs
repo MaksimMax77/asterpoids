@@ -9,6 +9,8 @@ namespace Controls
         public event Action<float> SpeedChanged;
         private float _currentSpeed = 0f;
         private Vector3 _inertiaDirection;
+
+        public float CurrenSpeed => _currentSpeed;
         public MotionWithInertia(Camera camera) : base(camera)
         {
             

@@ -6,27 +6,32 @@ using UnityEngine.InputSystem;
 
 namespace MVC
 {
-    public class ShipController: UnitsController
+    public class UserShipController : BaseController
     {
-        private ShipView _shipView;
-        private Vector3 _direction;
-        private BattlefieldModel _battlefieldModel;
         private UserModel _userModel;
-        private bool _laserEnabled;
-        private BaseUnitView _laserView;
+        private ShipView _shipView;
+        private MotionWithInertia _motionWithInertia;
+        private MoveControl _moveControl;
         private List<BaseUnitView> _projectiles = new List<BaseUnitView>();
         private List<BaseUnitView> _projectilesPool = new List<BaseUnitView>();
+        private bool _laserEnabled;
+        private Camera _camera;
+        private GameSettings _settings;
         private Transform _parent;
-        private MotionWithInertia _motionWithInertia;
-        private GameSettings.ShipSettings _shipSettings;
-        public ShipController(BattlefieldModel battlefieldModel) : base(battlefieldModel)
+        private BaseUnitView _laserView;
+        private GameManager _gameManager;
+
+        public UserShipController(GameManager gameManager, UserModel userModel, ShipView shipView, Camera camera, GameSettings settings)
         {
-            _userModel = Main.Instance.UserModel;
-            _shipView = (ShipView) _userModel.ShipView;
+            _userModel = userModel;
+            _shipView = shipView;
+            _camera = camera;
+            _settings = settings;
+            _gameManager = gameManager;
+            _motionWithInertia = new MotionWithInertia(_camera);
+            _moveControl = new MoveControl(_camera);
             _laserView = _shipView.LaserView;
             _laserView.OnEnemyTriggerEnter += OnLaserTriggerEnter;
-            _battlefieldModel = battlefieldModel;
-            _shipSettings = battlefieldModel.GameSettings.shipSettings;
             _shipView.OnEnemyTriggerEnter += OnEnemyTriggerEnter;
             _shipView.MoveButtonClicked += OnMoveButtonClicked;
             _shipView.MoveButtonUp += OnMoveButtonUp;
@@ -34,11 +39,13 @@ namespace MVC
             _shipView.ShootButtonClicked += OnShootButtonClicked;
             _shipView.LaserButtonClicked += OnLaserButtonClicked;
             _shipView.LaserButtonUp += OnLaserButtonUp;
+            _gameManager.RestartEvent += OnRestart;
             _parent = Main.Instance.ProjectilesParent;
-            _motionWithInertia = Main.Instance.UserModel.MotionWithInertia;
+            _userModel.SetStartPosition(shipView.transform.position);
+            _userModel.SetShipView(_shipView);
             for (var i = 0; i < 10; ++i)
             {
-                var obj = Object.Instantiate(_shipSettings.projectilePrefab, _parent);
+                var obj = Object.Instantiate(_settings.shipSettings.projectilePrefab, _parent);
                 _projectilesPool.Add(obj);
                 obj.gameObject.SetActive(false);
             }
@@ -46,7 +53,6 @@ namespace MVC
 
         public override void Dispose()
         {
-            base.Dispose();
             _laserView.OnEnemyTriggerEnter -= OnLaserTriggerEnter;
             _shipView.OnEnemyTriggerEnter -= OnEnemyTriggerEnter;
             _shipView.MoveButtonClicked -= OnMoveButtonClicked;
@@ -55,59 +61,66 @@ namespace MVC
             _shipView.ShootButtonClicked -= OnShootButtonClicked;
             _shipView.LaserButtonClicked -= OnLaserButtonClicked;
             _shipView.LaserButtonUp -= OnLaserButtonUp;
+            _gameManager.RestartEvent -= OnRestart;
         }
 
         public override void Update()
         {
             _motionWithInertia.TeleportOrDisappearEffect(_shipView);
+            _userModel.SetShipPosAngle(_shipView.gameObject.transform.position,
+                _shipView.gameObject.transform.localEulerAngles.z);
+            
             for (var i = _projectiles.Count-1; i >= 0; --i)
             {
-                ProjectileMove(_projectiles[i].transform.up, _projectiles[i], 10);
+                _moveControl.Move(_projectiles[i].transform.up, _projectiles[i], 10);
+                _moveControl.TeleportOrDisappearEffect(_projectiles[i], true, () =>
+                {
+                    _projectiles.Remove(_projectiles[i]);
+                    _projectiles[i].gameObject.SetActive(false);
+                });
             }
-            if (_battlefieldModel.IsGameOver)
+            if (_userModel.ShipDestroyed)
             {
                 return;
             }
             if (!_laserEnabled)
             {
-                _userModel.AddLaserAmount();
+                _userModel.ChangeLaserAmount(true);
             }
             Rotate();
         }
         
         private void Rotate()
         {
-            var mousePos = _battlefieldModel.Camera.ScreenToWorldPoint(Mouse.current.position.ReadValue());
+            var mousePos = _camera.ScreenToWorldPoint(Mouse.current.position.ReadValue());
             _shipView.transform.rotation = Quaternion.LookRotation(Vector3.forward, mousePos - _shipView.transform.position);
         }
+        
         protected void OnEnemyTriggerEnter(BaseUnitView view)
         { 
             _motionWithInertia.CurrentSpeedSetZero();
-            _userModel.DestroyShip();
+            if (_userModel.ShipDestroyed)
+            {
+                return;
+            }
+            _shipView.gameObject.SetActive(false);
             view.gameObject.SetActive(false);
+            _userModel.DestroyShip();
         }
-
-        protected override void Move(BaseUnitView baseUnitView, Vector3 direction)
-        {
-            _motionWithInertia.InertiaMove(direction, baseUnitView, _shipSettings.speed);
-        }
-
+        
         private void OnMoveButtonClicked()
         {
-            SetDirection(_shipView.transform.up);
-            Move(_shipView, _direction);
+            _motionWithInertia.InertiaMove(_shipView.transform.up, _shipView, _settings.shipSettings.speed);
+            _userModel.ShipSpeedSet(_motionWithInertia.CurrenSpeed);
         }
         private void OnMoveButtonUp()
         {
             _motionWithInertia.MoveEnd(_shipView);
-        }
-        private void SetDirection(Vector3 dir)
-        {
-            _direction = dir;
+            _userModel.ShipSpeedSet(_motionWithInertia.CurrenSpeed);
         }
         private void OnShootButtonClicked(Transform pos)
         {
-            if (_battlefieldModel.IsGameOver)
+            if (_userModel.ShipDestroyed)
             {
                 return;
             }
@@ -118,7 +131,7 @@ namespace MVC
             obj.transform.rotation = pos.rotation;
             _projectiles.Add(obj);
         }
-
+        
         private BaseUnitView ProjectileCreateOrEnable()
         {
             for (var i = _projectilesPool.Count - 1; i >= 0; --i)
@@ -128,10 +141,11 @@ namespace MVC
                     return _projectilesPool[i];
                 }
             }
-            var obj = Object.Instantiate(_shipSettings.projectilePrefab, _parent);
+            var obj = Object.Instantiate(_settings.shipSettings.projectilePrefab, _parent);
             _projectilesPool.Add(obj);
             return obj;
         }
+        
         private void OnLaserButtonClicked(GameObject laserObject)
         {
             if (_userModel.LaserAmount <= 5)
@@ -143,7 +157,7 @@ namespace MVC
             }
             _laserEnabled = true;
             _laserView.gameObject.SetActive(true);
-            _userModel.UseLaserAmount();
+            _userModel.ChangeLaserAmount(false);
         }
         
         private void OnLaserButtonUp(GameObject laserObject)
@@ -152,27 +166,24 @@ namespace MVC
             _laserView.gameObject.SetActive(false);
         }
 
-        private void ProjectileMove(Vector3 dir, BaseUnitView view, float speed)
-        {
-            _moveControl.Move(dir, view, speed);
-            _moveControl.TeleportOrDisappearEffect(view, true, () =>
-            {
-                _projectiles.Remove(view);
-                view.gameObject.SetActive(false);
-            });
-           
-        }
-
         private void ProjectileOnTriggerEnter(BaseUnitView view)
         {
             view.OnEnemyTriggerEnter -= ProjectileOnTriggerEnter;
-            _userModel.AddScore();
+            _userModel.AddScores();
             _projectiles.Remove(view);
             view.gameObject.SetActive(false);
         }
         private void OnLaserTriggerEnter(BaseUnitView unitView)
         {
-            _userModel.AddScore();
+            _userModel.AddScores();
+        }
+        
+        private void OnRestart()
+        {
+            _userModel.RespawnShip();
+            _userModel.ClearScores();
+            _shipView.transform.position = _userModel.StartPosition;
+            _shipView.gameObject.SetActive(true);
         }
     }
 }

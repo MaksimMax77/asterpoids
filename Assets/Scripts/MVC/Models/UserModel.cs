@@ -1,99 +1,99 @@
 using System;
-using Controls;
-using Settings;
+using UnityEditor;
 using UnityEngine;
-using Object = UnityEngine.Object;
 
 namespace MVC
 {
     public class UserModel : BaseModel
     {
-        private const float _maxLaserValue = 100;
-        public event Action ShipDestroyedEvent; 
         public event Action<float> LaserAmountUpdate;
         public event Action<int> ScoreAmountUpdate;
-        private GameSettings.ShipSettings _shipSettings;
-        private BaseUnitView _shipView;
-        private float _laserAmount;
-        private int _score;
+        public event Action ShipDestroyedEvent;
+        private const float _maxLaserValue = 100;
+        private float _laserAmount = _maxLaserValue;
+        private int _scores;
+        private float _shipSpeed;
         private Vector3 _startPosition;
-        private Transform _patent;
-        private BattlefieldModel _battlefieldModel;
-        private MotionWithInertia _motionWithInertia;
-        public BaseUnitView ShipView => _shipView;
+        private bool _shipDestroyed;
+        private Vector3 _shipPos;
+        private float _shipAngle;
+        private BaseUnitView _ship;
         public float MaxLaserValue => _maxLaserValue;
         public float LaserAmount => _laserAmount;
-        public GameSettings.ShipSettings ShipSettings => _shipSettings;
-        public int Score => _score;
-        public MotionWithInertia MotionWithInertia => _motionWithInertia;
-        
-        public UserModel(GameSettings gameSettings, BattlefieldModel battlefieldModel)
-        {
-            _patent = Main.Instance.UnitsParent;
-            _shipSettings = gameSettings.shipSettings;
-            _laserAmount = _shipSettings.laserAmount;
-            _battlefieldModel = battlefieldModel;
-            _battlefieldModel.RestartEvent += OnRespawn;
-            _motionWithInertia = new MotionWithInertia(_battlefieldModel.Camera);
-            CreteUnitView();
-        }
+        public int Scores => _scores;
+        public float ShipSpeed => _shipSpeed;
+        public Vector3 StartPosition => _startPosition;
+        public bool ShipDestroyed => _shipDestroyed;
+        public Vector3 ShipPos => _shipPos;
+        public float ShipAngle => _shipAngle;
+        public BaseUnitView Ship => _ship;
 
-        public override void Dispose()
+        public void ChangeLaserAmount(bool AddLaserValue)
         {
-            base.Dispose();
-            _battlefieldModel.RestartEvent -= OnRespawn;
-        }
-
-        private void CreteUnitView()
-        {
-            _shipView = Object.Instantiate(_shipSettings.unitView, _patent);
-            _startPosition = _shipView.transform.position;
-        }
-
-        public void UseLaserAmount()
-        {
-            _laserAmount = Mathf.Clamp(_laserAmount -= Time.deltaTime * 20, 0, _maxLaserValue);
-            LaserAmountUpdate?.Invoke(_laserAmount);
-        }
-
-        public void AddLaserAmount()
-        {
-            if (_laserAmount >= _maxLaserValue)
+            if (!AddLaserValue)
             {
-                return;
+                _laserAmount = Mathf.Clamp(_laserAmount -= Time.deltaTime * 20, 0, _maxLaserValue);
+                LaserAmountUpdate?.Invoke(_laserAmount);
             }
-            _laserAmount = Mathf.Clamp(_laserAmount += Time.deltaTime * 20, 0, _maxLaserValue);
-            LaserAmountUpdate?.Invoke(_laserAmount);
+            else
+            {
+                if (_laserAmount >= _maxLaserValue)
+                {
+                    return;
+                }
+
+                _laserAmount = Mathf.Clamp(_laserAmount += Time.deltaTime * 20, 0, _maxLaserValue);
+                LaserAmountUpdate?.Invoke(_laserAmount);
+            }
         }
 
-        public float SetLaserAmountZero()
+        public void SetLaserAmountZero()
         {
             _laserAmount = 0;
             LaserAmountUpdate?.Invoke(_laserAmount);
-            return _laserAmount;
         }
 
-        public void AddScore()
+        public void AddScores()
         {
-            ++_score;
-            ScoreAmountUpdate?.Invoke(_score);
+            ++_scores;
+            ScoreAmountUpdate?.Invoke(_scores);
+        }
+
+        public void ClearScores()
+        {
+             _scores = 0;
+            ScoreAmountUpdate?.Invoke(_scores);
         }
 
         public void DestroyShip()
         {
-            if (_battlefieldModel.IsGameOver)
-            {
-                return;
-            }
-            _shipView.gameObject.SetActive(false);
             ShipDestroyedEvent?.Invoke();
+            _shipDestroyed = true;
         }
 
-        private void OnRespawn()
+        public void RespawnShip()
         {
-            _score = 0;
-            _shipView.transform.position = _startPosition;
-            _shipView.gameObject.SetActive(true);
+            _shipDestroyed = false;
+        }
+        public void SetStartPosition(Vector3 value)
+        {
+            _startPosition = value;
+        }
+
+        public void ShipSpeedSet(float value)
+        {
+            _shipSpeed = value;
+        }
+
+        public void SetShipPosAngle(Vector3 pos, float angle)
+        {
+            _shipPos = pos;
+            _shipAngle = angle;
+        }
+
+        public void SetShipView(BaseUnitView view)
+        {
+            _ship = view;
         }
     }
 }

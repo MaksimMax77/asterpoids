@@ -12,7 +12,7 @@ namespace Controls
         [SerializeField] private List<GameObject> _spawnEffects;
         private Transform _parent;
 
-        private void Awake()
+        private void Start()
         {
             _parent = Main.Instance.ProjectilesParent;
         }

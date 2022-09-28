@@ -1,64 +1,76 @@
-using Settings;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace MVC
 {
-    public class AsteroidsController : UnitsController
+    public class AsteroidsController: UfoController
     {
-        private GameSettings.AsteroidSettings _asteroidSettings;
-        public AsteroidsController(BattlefieldModel battlefieldModel) : base(battlefieldModel)
+        private AsteroidsModel _asteroidsModel;
+        private List<BaseUnitView> _fragmets = new List<BaseUnitView>();
+        private List<Vector3> _fragmentsDirections = new List<Vector3>();
+        
+        public AsteroidsController(UfoModel model, MonoBehaviour monoBehaviour, GameManager gameManager) : base(model, monoBehaviour, gameManager)
         {
-            _asteroidSettings = battlefieldModel.GameSettings.asteroidSettings;
-            
-            for (int i = 0, len = _enemiesModel.Asteroids.Count; i < len; ++i)
+            _asteroidsModel = (AsteroidsModel)_model;
+            for (var i = 0; i < _settings.amount; ++i)
             {
-                _enemiesModel.Asteroids[i].OnEnemyTriggerEnter += OnEnemyTriggerEnter;
+                _asteroidsModel.AddDirection(Random.insideUnitCircle.normalized);
             }
         }
-
-        public override void Dispose()
-        {
-            for (int i = 0, len = _enemiesModel.Asteroids.Count; i < len; ++i)
-            {
-                _enemiesModel.Asteroids[i].OnEnemyTriggerEnter -= OnEnemyTriggerEnter;
-            }
-        }
-
         public override void Update()
         {
-            base.Update();
-
-            for (int i = 0, len = _enemiesModel.Fragmets.Count; i < len; ++i)
+            for (int i = 0, len = _asteroidsModel.Units.Count; i < len; ++i)
             {
-                Move(_enemiesModel.Fragmets[i],_enemiesModel.FragmentsDirections[i]);
+                _moveControl.TeleportOrDisappearEffect(_asteroidsModel.Units[i]);
+                _moveControl.Move(_asteroidsModel.AsteroidsDirection[i], _asteroidsModel.Units[i], _settings.speed);
             }
-            for (int i = 0, len = _enemiesModel.Asteroids.Count; i < len; ++i)
+
+            for (int i = 0, len = _fragmets.Count; i < len; ++i)
             {
-                Move(_enemiesModel.Asteroids[i], _enemiesModel.AsteroidsDirections[i]);
+                _moveControl.TeleportOrDisappearEffect(_fragmets[i]);
+                _moveControl.Move(_fragmentsDirections[i], _fragmets[i], 
+                   _asteroidsModel.GameSettings.smallAsteroidSettings.speed);
             }
         }
-        protected void OnEnemyTriggerEnter(BaseUnitView view)
+        
+        protected override void SetSettings()
         {
-            var fragments = _enemiesModel.CreateFragments(view.transform.position);
+            _settings = _model.GameSettings.asteroidSettings;
+        }
+
+        protected override void OnEnemyTriggerEnter(BaseUnitView view)
+        {
+            var fragments = CreateFragments(view.transform.position);
            
-           for (int i = 0, len = fragments.Count; i < fragments.Count; ++i)
-           {
-               fragments[i].OnEnemyTriggerEnter += OnEnemyTriggerFragmentEnter;
-           }
-            _enemiesModel.DisableAsteroid(view);
-            _enemiesModel.StartRespawnTimer(2f, view);
-       
-        }
-        private void OnEnemyTriggerFragmentEnter(BaseUnitView view)
-        {
-            view.OnEnemyTriggerEnter -= OnEnemyTriggerFragmentEnter;
-            _enemiesModel.DestroyFragment(view);
-        }
-        protected override void Move(BaseUnitView baseUnitView, Vector3 direction)
-        {
-            base.Move(baseUnitView, direction);
-            _moveControl.Move(direction, baseUnitView, _asteroidSettings.speed);
+            for (int i = 0, len = fragments.Count; i < fragments.Count; ++i)
+            {
+                fragments[i].OnEnemyTriggerEnter += OnEnemyTriggerFragmentEnter;
+            }
+            base.OnEnemyTriggerEnter(view);
         }
 
+        private void OnEnemyTriggerFragmentEnter(BaseUnitView obj)
+        {
+            obj.OnEnemyTriggerEnter -= OnEnemyTriggerFragmentEnter;
+            var index = _fragmets.IndexOf(obj);
+            _fragmets.RemoveAt(index);
+            _fragmentsDirections.RemoveAt(index);
+            Object.Destroy(obj.gameObject);
+        }
+
+        private List<BaseUnitView> CreateFragments(Vector3 pos)
+        {
+            var createdObj = new List<BaseUnitView>();
+            for (var i = 0; i < _model.GameSettings.smallAsteroidSettings.amount; ++i)
+            {
+                var obj = Object.Instantiate(_model.GameSettings.smallAsteroidSettings.unitView, 
+                    _model.Parent);
+                obj.transform.position = pos;
+                _fragmets.Add(obj);
+                _fragmentsDirections.Add(Random.insideUnitCircle.normalized);
+                createdObj.Add(obj);
+            }
+            return createdObj;
+        }
     }
 }
